@@ -18,7 +18,7 @@ const TRAIL_COUNT = 60;
 const Ground = () => (
   <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
     <planeGeometry args={[100, 300]} />
-    <meshStandardMaterial color="#f8fbfd" roughness={0.9} metalness={0.1} />
+    <meshStandardMaterial color="#cde3f5" roughness={0.9} metalness={0.1} />
     {/* Simple grid lines for speed illusion */}
     <gridHelper args={[100, 20, 0xd0e0f0, 0xe0f0ff]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.01]} />
   </mesh>
@@ -47,7 +47,7 @@ const ProceduralTree = forwardRef(({ scale = 1, variation = 0 }, ref) => (
         </mesh>
         <mesh position={[0, 2.5, 0]} castShadow receiveShadow>
           <coneGeometry args={[1.2, 2, 7]} />
-          <meshStandardMaterial color="#ffffff" roughness={0.5} />
+          <meshStandardMaterial color="#e0e8f0" roughness={0.5} />
         </mesh>
       </>
     )}
@@ -600,7 +600,7 @@ export default function SkiGame() {
         <directionalLight 
           castShadow 
           position={[10, 30, 10]} 
-          intensity={2.5} 
+          intensity={1.2} 
           shadow-mapSize={[2048, 2048]}
         >
           <orthographicCamera attach="shadow-camera" args={[-20, 20, 20, -20, 1, 100]} />
@@ -623,8 +623,8 @@ export default function SkiGame() {
           />
           
           {/* Post-Processing Pipeline */}
-          <EffectComposer>
-            <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.9} intensity={1.5} />
+          <EffectComposer disableNormalPass>
+            <Bloom luminanceThreshold={0.95} luminanceSmoothing={0.1} intensity={0.6} />
             <Vignette eskil={false} offset={0.1} darkness={1.1} />
           </EffectComposer>
         </React.Suspense>
