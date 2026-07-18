@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    @apply w-full h-full m-0 p-0 overflow-hidden bg-diamond-bg text-white font-body select-none;
+  }
+  #root {
+    @apply w-full h-full;
+  }
+}
+
+.notebook-texture {
+  background:
+    linear-gradient(#b4d0f0 1px, transparent 1px),
+    linear-gradient(to right, transparent 56px, #ffb0b0 56px, #ffb0b0 58px, transparent 58px),
+    #fefef6;
+  background-size: 100% 30px, 100% 100%;
+  background-position: 0 26px, 0 0;
+}
+
+@media (max-width: 767px) {
+  .mobile-notebook {
+    background:
+      linear-gradient(#b4d0f0 1px, transparent 1px),
+      linear-gradient(to right, transparent 48px, #ffb0b0 48px, #ffb0b0 50px, transparent 50px),
+      #fefef6 !important;
+    background-size: 100% 30px, 100% 100% !important;
+    background-position: 0 -4px, 0 0 !important;
+    border-radius: 16px !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75) !important;
+    padding-left: 64px !important;
+    padding-right: 16px !important;
+    padding-top: 0px !important;
+    padding-bottom: 32px !important;
+    margin-top: 16px !important;
+  }
+}
