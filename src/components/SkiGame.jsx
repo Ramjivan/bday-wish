@@ -100,9 +100,10 @@ const AnimatedSkier = ({ positionX, faceState, speed, isGameOver }) => {
     // Smooth physics X movement interpolation
     group.current.position.x = positionX.current;
     
-    // Tilt based on horizontal velocity (calculated by checking change in X)
+    // Tilt (roll) and Yaw based on horizontal velocity
     const tilt = (positionX.current - group.current.position.x) * 2;
-    group.current.rotation.z = -tilt * 0.1;
+    group.current.rotation.z = -tilt * 0.1; // Lean into turn
+    group.current.rotation.y = -tilt * 0.15; // Turn body into turn
 
     if (isGameOver) {
       // Crash wipeout animation
@@ -172,6 +173,32 @@ const AnimatedSkier = ({ positionX, faceState, speed, isGameOver }) => {
       </mesh>
     </group>
   );
+};
+
+// --- DYNAMIC 3D CAMERA ---
+const CameraManager = ({ skierX, isGameOver }) => {
+  useFrame((state, delta) => {
+    if (isGameOver) {
+      // Zoom out on crash
+      state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, 20, delta);
+      state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, 8, delta);
+      state.camera.lookAt(0, 0, 0);
+      return;
+    }
+
+    // Camera smoothly follows skier's X position (but lags behind slightly)
+    const targetX = skierX.current * 0.4; // Camera moves 40% as much as player
+    state.camera.position.x = THREE.MathUtils.lerp(state.camera.position.x, targetX, delta * 3);
+    
+    // Position camera low and behind to emphasize 3D horizon
+    state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, 4.5, delta * 2);
+    state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, 12, delta * 2);
+    
+    // Look slightly ahead of the player to show the 3D depth
+    const lookTarget = new THREE.Vector3(skierX.current * 0.2, 0, -5);
+    state.camera.lookAt(lookTarget);
+  });
+  return null;
 };
 
 const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOver, currentSpeed }) => {
@@ -450,7 +477,7 @@ export default function SkiGame() {
       </div>
 
       {/* 3D Scene */}
-      <Canvas shadows camera={{ position: [0, 6, 15], fov: 60 }}>
+      <Canvas shadows camera={{ position: [0, 4.5, 12], fov: 60 }}>
         <Sky sunPosition={[100, 20, 100]} turbidity={0.1} rayleigh={0.5} />
         <ambientLight intensity={0.6} />
         <directionalLight 
@@ -460,6 +487,8 @@ export default function SkiGame() {
           shadow-mapSize={[2048, 2048]}
         />
         <fog attach="fog" args={['#87CEEB', 20, 100]} />
+        
+        <CameraManager skierX={skierX} isGameOver={isGameOver} />
         
         <React.Suspense fallback={null}>
           <AnimatedSkier positionX={skierX} faceState={faceState} speed={currentSpeed.current} isGameOver={isGameOver} />
