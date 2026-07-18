@@ -42,7 +42,7 @@ export default function DiamondGame({ onBack }) {
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     const img = new Image();
-    img.src = '/lada_mom.jpg';
+    img.src = './lada_mom.jpg';
     img.crossOrigin = "Anonymous";
     img.onload = () => {
       const c = document.createElement('canvas');
