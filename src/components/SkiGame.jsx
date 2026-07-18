@@ -7,12 +7,12 @@ import * as THREE from 'three';
 const SPAWN_Z = -120;
 const DESPAWN_Z = 15;
 const BOUNDARY = 10;
-const BASE_SPEED = 25;
+const BASE_SPEED = 15;
 
 // --- 3D ENVIRONMENT ---
 
 const Ground = () => (
-  <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
+  <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
     <planeGeometry args={[100, 300]} />
     <meshStandardMaterial color="#f8fbfd" roughness={0.8} />
     {/* Simple grid lines for speed illusion */}
@@ -180,12 +180,15 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
   const worldDistance = useRef(0);
   
   // Track snow trails
-  const trailMarks = useRef([]);
+  const trailCount = 60;
+  const trailMeshRef = useRef();
+  const trailData = useRef(new Array(trailCount).fill({ active: false, x: 0, z: 0 }));
+  const trailIndex = useRef(0);
 
   // Initialize environment
   useEffect(() => {
     const initialItems = [];
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 10; i++) {
       initialItems.push({
         id: Math.random(),
         type: 'tree',
@@ -214,13 +217,31 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
       worldGroup.current.rotation.x = THREE.MathUtils.lerp(worldGroup.current.rotation.x, slopeAngle, delta * 2);
     }
     
-    // Adjust speed based on slope (downhill = faster)
-    const targetSpeed = BASE_SPEED + (slopeAngle * 100);
+    // Adjust speed based on slope (downhill = faster, uphill = slower)
+    const targetSpeed = Math.max(8, BASE_SPEED + (slopeAngle * 60));
     currentSpeed.current = THREE.MathUtils.lerp(currentSpeed.current, targetSpeed, delta);
 
-    // Trail marks logic (leave a mark every few frames based on movement)
-    if (Math.random() > 0.5) {
-      trailMarks.current.push({ x: skierX.current, z: 0, life: 1 });
+    // Trail marks logic: spawn new trail pieces continuously
+    const idx = trailIndex.current;
+    trailData.current[idx] = { active: true, x: skierX.current, z: 0 };
+    trailIndex.current = (idx + 1) % trailCount;
+
+    if (trailMeshRef.current) {
+      let dummy = new THREE.Object3D();
+      for (let i = 0; i < trailCount; i++) {
+        let t = trailData.current[i];
+        if (t.active) {
+          t.z += currentSpeed.current * delta; // move towards camera
+          dummy.position.set(t.x, 0.02, t.z);
+          // fade and scale based on age
+          let progress = t.z / DESPAWN_Z;
+          let scale = Math.max(0, 1 - progress);
+          dummy.scale.set(scale, scale, scale);
+          dummy.updateMatrix();
+          trailMeshRef.current.setMatrixAt(i, dummy.matrix);
+        }
+      }
+      trailMeshRef.current.instanceMatrix.needsUpdate = true;
     }
 
     setItems((prev) => {
@@ -228,12 +249,12 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
       for (let item of prev) {
         item.z += currentSpeed.current * delta;
         
-        // Collision Detection
-        if (item.z > -0.5 && item.z < 0.5) {
+        // Collision Detection (Made hitboxes much wider and accurate)
+        if (item.z > -1 && item.z < 1.5) {
           const dx = Math.abs(item.x - skierX.current);
-          if (item.type === 'tree' && dx < 1.2) {
+          if (item.type === 'tree' && dx < 2.0) {
             hit = true;
-          } else if (item.type === 'present' && !item.collected && dx < 1.5) {
+          } else if (item.type === 'present' && !item.collected && dx < 1.8) {
             grabbed = true;
             item.collected = true;
           }
@@ -244,9 +265,10 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
         }
       }
       
-      // Spawn logic
-      if (newItems.length < 25) {
-        const type = Math.random() > 0.15 ? 'tree' : 'present';
+      // Spawn logic: lower density for better gameplay
+      if (newItems.length < 15) {
+        // 75% trees, 25% presents
+        const type = Math.random() > 0.25 ? 'tree' : 'present';
         newItems.push({ 
           id: Math.random(), 
           type, 
@@ -274,6 +296,12 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
   return (
     <group ref={worldGroup}>
       <Ground />
+      {/* ICE TRAILS INSTANCED MESH */}
+      <instancedMesh ref={trailMeshRef} args={[null, null, trailCount]}>
+        <boxGeometry args={[0.8, 0.05, 3]} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+      </instancedMesh>
+      
       {items.map(item => (
         item.type === 'tree' ? 
           <ProceduralTree key={item.id} position={[item.x, 0, item.z]} scale={item.scale} variation={item.variation} /> :
@@ -325,25 +353,31 @@ export default function SkiGame() {
   // Physics Loop
   useEffect(() => {
     let animationFrame;
-    const updatePhysics = () => {
+    let lastTime = performance.now();
+    
+    const updatePhysics = (time) => {
+      const dt = Math.min((time - lastTime) / 1000, 0.1); // max 100ms delta to prevent huge jumps
+      lastTime = time;
+
       if (!isGameOver) {
         let ax = 0;
-        if (keys.current.left || touchState.current === -1) ax -= 0.8;
-        if (keys.current.right || touchState.current === 1) ax += 0.8;
+        // Acceleration in units per second squared
+        if (keys.current.left || touchState.current === -1) ax -= 60;
+        if (keys.current.right || touchState.current === 1) ax += 60;
         
-        skierVX.current += ax;
-        skierVX.current *= 0.85; // Friction
+        skierVX.current += ax * dt;
+        skierVX.current *= 0.85; // Damping/Friction
         
-        skierX.current += skierVX.current;
+        skierX.current += skierVX.current * dt;
         skierX.current = Math.max(-BOUNDARY + 1, Math.min(BOUNDARY - 1, skierX.current));
         
-        if (Math.abs(skierVX.current) > 1.5 && faceState === 'normal') {
+        if (Math.abs(skierVX.current) > 5 && faceState === 'normal') {
           handleSetFace('dodge');
         }
       }
       animationFrame = requestAnimationFrame(updatePhysics);
     };
-    updatePhysics();
+    animationFrame = requestAnimationFrame(updatePhysics);
     return () => cancelAnimationFrame(animationFrame);
   }, [isGameOver, faceState]);
 
