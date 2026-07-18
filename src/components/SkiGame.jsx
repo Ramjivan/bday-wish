@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Billboard, useTexture, Sky } from '@react-three/drei';
+import { Billboard, useTexture, Sky, Environment, Sparkles, Text } from '@react-three/drei';
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 
 // --- CONSTANTS ---
@@ -14,9 +15,9 @@ const BASE_SPEED = 15;
 const Ground = () => (
   <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} receiveShadow>
     <planeGeometry args={[100, 300]} />
-    <meshStandardMaterial color="#f8fbfd" roughness={0.8} />
+    <meshStandardMaterial color="#f8fbfd" roughness={0.9} metalness={0.1} />
     {/* Simple grid lines for speed illusion */}
-    <gridHelper args={[100, 20, 0xe0e0e0, 0xf0f0f0]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.01]} />
+    <gridHelper args={[100, 20, 0xd0e0f0, 0xe0f0ff]} rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.01]} />
   </mesh>
 );
 
@@ -25,11 +26,11 @@ const ProceduralTree = ({ position, scale = 1, variation = 0 }) => (
     {variation === 0 ? (
       // Tall Pine
       <>
-        <mesh position={[0, 2, 0]} castShadow>
+        <mesh position={[0, 2, 0]} castShadow receiveShadow>
           <coneGeometry args={[1, 4, 8]} />
           <meshStandardMaterial color="#2d5a27" roughness={0.9} />
         </mesh>
-        <mesh position={[0, 4, 0]} castShadow>
+        <mesh position={[0, 4, 0]} castShadow receiveShadow>
           <coneGeometry args={[0.8, 3, 8]} />
           <meshStandardMaterial color="#3a7033" roughness={0.9} />
         </mesh>
@@ -37,11 +38,11 @@ const ProceduralTree = ({ position, scale = 1, variation = 0 }) => (
     ) : (
       // Bushy Snowy Tree
       <>
-        <mesh position={[0, 1.5, 0]} castShadow>
+        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
           <coneGeometry args={[1.5, 3, 7]} />
           <meshStandardMaterial color="#228b22" roughness={1} />
         </mesh>
-        <mesh position={[0, 2.5, 0]} castShadow>
+        <mesh position={[0, 2.5, 0]} castShadow receiveShadow>
           <coneGeometry args={[1.2, 2, 7]} />
           <meshStandardMaterial color="#ffffff" roughness={0.5} />
         </mesh>
@@ -49,34 +50,78 @@ const ProceduralTree = ({ position, scale = 1, variation = 0 }) => (
     )}
     <mesh position={[0, 0.5, 0]} castShadow>
       <cylinderGeometry args={[0.3, 0.4, 1]} />
-      <meshStandardMaterial color="#5c4033" />
+      <meshStandardMaterial color="#5c4033" roughness={1.0} />
     </mesh>
   </group>
 );
 
-const PremiumPresent = ({ position, color, rotationY }) => {
+const PremiumPresent = ({ position, color, rotationY, collected }) => {
+  const group = useRef();
+  const scale = useRef(0);
+  const isPopping = useRef(false);
+
+  useFrame((state, delta) => {
+    if (!group.current) return;
+    
+    if (collected && !isPopping.current) {
+      isPopping.current = true;
+      scale.current = 1.5; // Instant pop/squash
+    }
+
+    if (isPopping.current) {
+      scale.current = THREE.MathUtils.lerp(scale.current, 0, delta * 15);
+    } else {
+      scale.current = THREE.MathUtils.lerp(scale.current, 1, delta * 8);
+    }
+    
+    group.current.scale.setScalar(scale.current);
+  });
+
   return (
-    <group position={position} rotation={[0, rotationY, 0]}>
-      {/* Main Box */}
-      <mesh position={[0, 0.6, 0]} castShadow>
+    <group ref={group} position={position} rotation={[0, rotationY, 0]}>
+      {/* Main Box - PBR Shiny Foil */}
+      <mesh position={[0, 0.6, 0]} castShadow receiveShadow>
         <boxGeometry args={[1.2, 1.2, 1.2]} />
-        <meshStandardMaterial color={color} roughness={0.4} />
+        <meshPhysicalMaterial color={color} roughness={0.1} metalness={0.2} clearcoat={1.0} clearcoatRoughness={0.1} />
       </mesh>
       {/* Ribbons */}
       <mesh position={[0, 0.6, 0]} castShadow>
         <boxGeometry args={[1.25, 1.25, 0.2]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshStandardMaterial color="#ffffff" roughness={0.2} />
       </mesh>
       <mesh position={[0, 0.6, 0]} castShadow>
         <boxGeometry args={[0.2, 1.25, 1.25]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshStandardMaterial color="#ffffff" roughness={0.2} />
       </mesh>
       {/* Bow */}
       <mesh position={[0, 1.3, 0]} castShadow rotation={[Math.PI/2, 0, 0]}>
         <torusGeometry args={[0.2, 0.05, 16, 32]} />
-        <meshStandardMaterial color="#ffffff" />
+        <meshStandardMaterial color="#ffffff" roughness={0.2} />
       </mesh>
     </group>
+  );
+};
+
+const FloatingScore = ({ position }) => {
+  const textRef = useRef();
+  useFrame((state, delta) => {
+    if (textRef.current) {
+      textRef.current.position.y += delta * 3.0;
+      textRef.current.fillOpacity -= delta * 1.2;
+    }
+  });
+  return (
+    <Text 
+      ref={textRef} 
+      position={[position[0], position[1] + 2, position[2]]} 
+      fontSize={2} 
+      color="#ff1493" 
+      outlineWidth={0.1} 
+      outlineColor="#ffffff"
+      fontWeight="bold"
+    >
+      +100
+    </Text>
   );
 };
 
@@ -125,17 +170,20 @@ const AnimatedSkier = ({ positionX, faceState, speed, isGameOver }) => {
 
   return (
     <group ref={group} position={[0, 0, 0]}>
+      {/* Powder Snow Particles attached to skis */}
+      {!isGameOver && <Sparkles count={30} scale={[2, 0.5, 2]} size={3} speed={0.4} opacity={0.8} color="#ffffff" position={[0, 0.2, 0.5]} />}
+      
       {/* Torso */}
-      <mesh position={[0, 1, 0]} castShadow>
+      <mesh position={[0, 1, 0]} castShadow receiveShadow>
         <capsuleGeometry args={[0.3, 0.8, 4, 16]} />
-        <meshStandardMaterial color="#ff1493" roughness={0.6} />
+        <meshStandardMaterial color="#ff1493" roughness={0.6} metalness={0.1} />
       </mesh>
       
       {/* Arms & Poles */}
       <group position={[-0.4, 1.4, 0]} ref={leftArm}>
-        <mesh position={[0, -0.4, 0]} castShadow>
+        <mesh position={[0, -0.4, 0]} castShadow receiveShadow>
           <capsuleGeometry args={[0.1, 0.6]} />
-          <meshStandardMaterial color="#ff69b4" />
+          <meshStandardMaterial color="#ff69b4" roughness={0.6} />
         </mesh>
         <mesh position={[0, -1, 0.2]} rotation={[-Math.PI/4, 0, 0]} castShadow>
           <cylinderGeometry args={[0.02, 0.02, 1.5]} />
@@ -144,9 +192,9 @@ const AnimatedSkier = ({ positionX, faceState, speed, isGameOver }) => {
       </group>
 
       <group position={[0.4, 1.4, 0]} ref={rightArm}>
-        <mesh position={[0, -0.4, 0]} castShadow>
+        <mesh position={[0, -0.4, 0]} castShadow receiveShadow>
           <capsuleGeometry args={[0.1, 0.6]} />
-          <meshStandardMaterial color="#ff69b4" />
+          <meshStandardMaterial color="#ff69b4" roughness={0.6} />
         </mesh>
         <mesh position={[0, -1, 0.2]} rotation={[-Math.PI/4, 0, 0]} castShadow>
           <cylinderGeometry args={[0.02, 0.02, 1.5]} />
@@ -163,46 +211,55 @@ const AnimatedSkier = ({ positionX, faceState, speed, isGameOver }) => {
       </Billboard>
 
       {/* Skis */}
-      <mesh position={[-0.2, 0.05, 0]} castShadow>
+      <mesh position={[-0.2, 0.05, 0]} castShadow receiveShadow>
         <boxGeometry args={[0.12, 0.05, 2.5]} />
-        <meshStandardMaterial color="#111" />
+        <meshStandardMaterial color="#111" roughness={0.2} metalness={0.8} />
       </mesh>
-      <mesh position={[0.2, 0.05, 0]} castShadow>
+      <mesh position={[0.2, 0.05, 0]} castShadow receiveShadow>
         <boxGeometry args={[0.12, 0.05, 2.5]} />
-        <meshStandardMaterial color="#111" />
+        <meshStandardMaterial color="#111" roughness={0.2} metalness={0.8} />
       </mesh>
     </group>
   );
 };
 
-// --- DYNAMIC 3D CAMERA ---
-const CameraManager = ({ skierX, isGameOver }) => {
+// --- DYNAMIC 3D CAMERA & SHAKE ---
+const CameraManager = ({ skierX, isGameOver, trauma }) => {
   useFrame((state, delta) => {
-    if (isGameOver) {
-      // Zoom out on crash
-      state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, 20, delta);
-      state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, 8, delta);
-      state.camera.lookAt(0, 0, 0);
-      return;
+    // 1. Decay trauma
+    if (trauma.current > 0) {
+      trauma.current = Math.max(0, trauma.current - delta * 1.2);
     }
+    const shake = trauma.current * trauma.current; // Quadratic falloff for smooth shake
 
-    // Camera smoothly follows skier's X position (but lags behind slightly)
+    // 2. Base Camera Follow
     const targetX = skierX.current * 0.4; // Camera moves 40% as much as player
-    state.camera.position.x = THREE.MathUtils.lerp(state.camera.position.x, targetX, delta * 3);
+    const baseCamX = THREE.MathUtils.lerp(state.camera.position.x, targetX, delta * 3);
+    const baseCamY = THREE.MathUtils.lerp(state.camera.position.y, isGameOver ? 8 : 4.5, delta * 2);
+    const baseCamZ = THREE.MathUtils.lerp(state.camera.position.z, isGameOver ? 20 : 12, delta * 2);
     
-    // Position camera low and behind to emphasize 3D horizon
-    state.camera.position.y = THREE.MathUtils.lerp(state.camera.position.y, 4.5, delta * 2);
-    state.camera.position.z = THREE.MathUtils.lerp(state.camera.position.z, 12, delta * 2);
+    // 3. Apply Shake Offset
+    if (shake > 0) {
+      const time = state.clock.elapsedTime * 30.0;
+      state.camera.position.set(
+        baseCamX + (0.8 * shake * Math.sin(time * 1.7)),
+        baseCamY + (0.8 * shake * Math.sin(time * 2.3)),
+        baseCamZ
+      );
+    } else {
+      state.camera.position.set(baseCamX, baseCamY, baseCamZ);
+    }
     
-    // Look slightly ahead of the player to show the 3D depth
+    // Look ahead of player
     const lookTarget = new THREE.Vector3(skierX.current * 0.2, 0, -5);
     state.camera.lookAt(lookTarget);
   });
   return null;
 };
 
-const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOver, currentSpeed }) => {
+const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOver, currentSpeed, trauma, triggerHitStop }) => {
   const [items, setItems] = useState([]);
+  const [pops, setPops] = useState([]); // Floating +100 text triggers
   const worldGroup = useRef();
   const worldDistance = useRef(0);
   
@@ -233,7 +290,8 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
     if (isGameOver) return;
     
     let hit = false;
-    let grabbed = false;
+    let grabbedId = null;
+    let grabbedPos = null;
     
     // Physics-based hills
     worldDistance.current += currentSpeed.current * delta;
@@ -262,7 +320,7 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
           dummy.position.set(t.x, 0.02, t.z);
           // fade and scale based on age
           let progress = t.z / DESPAWN_Z;
-          let scale = Math.max(0, 1 - progress);
+          let scale = Math.max(0, 1 - Math.pow(progress, 2)); // Ease out trail
           dummy.scale.set(scale, scale, scale);
           dummy.updateMatrix();
           trailMeshRef.current.setMatrixAt(i, dummy.matrix);
@@ -282,12 +340,13 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
           if (item.type === 'tree' && dx < 2.0) {
             hit = true;
           } else if (item.type === 'present' && !item.collected && dx < 1.8) {
-            grabbed = true;
+            grabbedId = item.id;
+            grabbedPos = [item.x, 0, item.z];
             item.collected = true;
           }
         }
         
-        if (item.z < DESPAWN_Z && !item.collected) {
+        if (item.z < DESPAWN_Z) {
           newItems.push(item);
         }
       }
@@ -312,11 +371,14 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
     });
 
     if (hit) {
+      trauma.current = 1.0; // TRIGGER MASSIVE SCREEN SHAKE
+      triggerHitStop(0.12); // FREEZE TIME FOR 120ms
       setIsGameOver(true);
       setFaceState('crash');
-    } else if (grabbed) {
+    } else if (grabbedId) {
       setFaceState('jump');
       addScore();
+      setPops(p => [...p, { id: Math.random(), pos: grabbedPos }]);
     }
   });
 
@@ -326,13 +388,17 @@ const WorldManager = ({ skierX, setFaceState, addScore, isGameOver, setIsGameOve
       {/* ICE TRAILS INSTANCED MESH */}
       <instancedMesh ref={trailMeshRef} args={[null, null, trailCount]}>
         <boxGeometry args={[0.8, 0.05, 3]} />
-        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} />
+        <meshStandardMaterial color="#ffffff" transparent opacity={0.6} roughness={0.8} />
       </instancedMesh>
       
       {items.map(item => (
         item.type === 'tree' ? 
           <ProceduralTree key={item.id} position={[item.x, 0, item.z]} scale={item.scale} variation={item.variation} /> :
-          <PremiumPresent key={item.id} position={[item.x, 0, item.z]} color={item.color} rotationY={item.rotY} />
+          <PremiumPresent key={item.id} position={[item.x, 0, item.z]} color={item.color} rotationY={item.rotY} collected={item.collected} />
+      ))}
+
+      {pops.map(pop => (
+        <FloatingScore key={pop.id} position={pop.pos} />
       ))}
     </group>
   );
@@ -347,6 +413,14 @@ export default function SkiGame() {
   const [score, setScore] = useState(0);
   const [isGameOver, setIsGameOver] = useState(false);
   
+  // Game Feel Hooks
+  const trauma = useRef(0);
+  const hitStopTime = useRef(0);
+  
+  const triggerHitStop = (seconds) => {
+    hitStopTime.current = performance.now() + (seconds * 1000);
+  };
+
   // Controls
   const keys = useRef({ left: false, right: false });
   const touchState = useRef(0); // -1 left, 1 right, 0 none
@@ -383,6 +457,13 @@ export default function SkiGame() {
     let lastTime = performance.now();
     
     const updatePhysics = (time) => {
+      if (time < hitStopTime.current) {
+        // We are currently in Hit-Stop freeze frames!
+        lastTime = time; // prevent massive dt jump when unfreezing
+        animationFrame = requestAnimationFrame(updatePhysics);
+        return;
+      }
+
       const dt = Math.min((time - lastTime) / 1000, 0.1); // max 100ms delta to prevent huge jumps
       lastTime = time;
 
@@ -415,7 +496,7 @@ export default function SkiGame() {
     skierX.current = 0;
     skierVX.current = 0;
     currentSpeed.current = BASE_SPEED;
-    // World is reset within the loop naturally by moving forward
+    trauma.current = 0;
   };
 
   return (
@@ -423,36 +504,40 @@ export default function SkiGame() {
       
       {/* HUD UI */}
       <div className="absolute top-4 left-4 z-10 font-sans">
-        <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">
-          🎁 {score}
+        <h1 className="text-4xl md:text-6xl font-black text-white drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] flex items-center gap-2">
+          🎁 <span style={{ textShadow: '0 0 20px #ff1493' }}>{score}</span>
         </h1>
-        <p className="text-white text-lg font-bold drop-shadow-md mt-2">
-          Use Arrow Keys or Buttons to Steer!
-        </p>
       </div>
 
       {/* Lada Cam */}
-      <div className="absolute top-4 right-4 z-10 w-28 h-28 md:w-48 md:h-48 rounded-full border-4 border-pink-500 shadow-2xl overflow-hidden bg-zinc-800">
-        <div className="absolute bottom-0 w-full text-center bg-pink-500 text-white text-xs font-bold py-1 z-20">LADA CAM</div>
+      <div className="absolute top-4 right-4 z-10 w-28 h-28 md:w-48 md:h-48 rounded-full border-4 border-pink-500 shadow-[0_0_40px_rgba(236,72,153,0.5)] overflow-hidden bg-zinc-800">
+        <div className="absolute bottom-0 w-full text-center bg-pink-500 text-white text-xs font-bold py-1 z-20 shadow-lg">LADA CAM</div>
         <img 
           src={`./faces/face_${faceState}.png`} 
           alt="Lada Cam"
-          className="w-full h-full object-cover transition-all duration-100"
-          style={{ transform: faceState === 'crash' ? 'scale(1.3) rotate(-10deg)' : 'scale(1)' }}
+          className="w-full h-full object-cover transition-all duration-150"
+          style={{ transform: faceState === 'crash' ? 'scale(1.4) rotate(-15deg)' : 'scale(1.1)' }}
         />
       </div>
 
-      {/* Wipeout Screen */}
+      {/* Wipeout Screen (Frosted Glass Match) */}
       {isGameOver && (
-        <div className="absolute inset-0 z-50 bg-black/60 flex flex-col items-center justify-center backdrop-blur-sm">
-          <h2 className="text-6xl font-black text-white mb-8 drop-shadow-lg rotate-[-5deg]">💥 WIPEOUT! 💥</h2>
-          <p className="text-2xl text-pink-300 font-bold mb-8">You collected {score} presents!</p>
-          <button 
-            onClick={restartGame}
-            className="px-10 py-5 bg-pink-500 hover:bg-pink-400 text-white text-2xl font-black rounded-full shadow-[0_0_30px_rgba(236,72,153,0.8)] border-4 border-white transition hover:scale-110 active:scale-95"
-          >
-            Play Again ⛷️
-          </button>
+        <div className="absolute inset-0 z-50 bg-black/40 flex flex-col items-center justify-center backdrop-blur-md">
+          <div className="bg-white/10 p-12 rounded-3xl border border-white/20 shadow-[0_0_100px_rgba(236,72,153,0.3)] flex flex-col items-center text-center">
+            <h2 className="text-6xl md:text-8xl font-black text-white mb-6 drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] rotate-[-4deg]">WIPEOUT!</h2>
+            <img 
+              src={`./faces/face_crash.png`} 
+              className="w-48 h-48 rounded-full border-8 border-pink-500 shadow-2xl mb-8 object-cover"
+              alt="Crash Face"
+            />
+            <p className="text-3xl text-pink-300 font-bold mb-10 drop-shadow-md">Score: {score}</p>
+            <button 
+              onClick={restartGame}
+              className="px-12 py-6 bg-pink-500 hover:bg-pink-400 text-white text-3xl font-black rounded-full shadow-[0_0_40px_rgba(236,72,153,1)] border-4 border-white transition hover:scale-110 active:scale-95"
+            >
+              Play Again ⛷️
+            </button>
+          </div>
         </div>
       )}
 
@@ -462,7 +547,7 @@ export default function SkiGame() {
           onPointerDown={() => touchState.current = -1}
           onPointerUp={() => touchState.current = 0}
           onPointerLeave={() => touchState.current = 0}
-          className="w-24 h-24 bg-white/20 border-2 border-white/50 rounded-full flex items-center justify-center backdrop-blur-md active:bg-white/40 pointer-events-auto"
+          className="w-24 h-24 bg-white/20 border-2 border-white/50 rounded-full flex items-center justify-center backdrop-blur-md active:bg-white/40 pointer-events-auto shadow-[0_0_20px_rgba(255,255,255,0.3)]"
         >
           <span className="text-4xl text-white font-black">←</span>
         </button>
@@ -470,7 +555,7 @@ export default function SkiGame() {
           onPointerDown={() => touchState.current = 1}
           onPointerUp={() => touchState.current = 0}
           onPointerLeave={() => touchState.current = 0}
-          className="w-24 h-24 bg-white/20 border-2 border-white/50 rounded-full flex items-center justify-center backdrop-blur-md active:bg-white/40 pointer-events-auto"
+          className="w-24 h-24 bg-white/20 border-2 border-white/50 rounded-full flex items-center justify-center backdrop-blur-md active:bg-white/40 pointer-events-auto shadow-[0_0_20px_rgba(255,255,255,0.3)]"
         >
           <span className="text-4xl text-white font-black">→</span>
         </button>
@@ -478,28 +563,42 @@ export default function SkiGame() {
 
       {/* 3D Scene */}
       <Canvas shadows camera={{ position: [0, 4.5, 12], fov: 60 }}>
-        <Sky sunPosition={[100, 20, 100]} turbidity={0.1} rayleigh={0.5} />
-        <ambientLight intensity={0.6} />
+        <color attach="background" args={['#87CEEB']} />
+        
+        {/* Advanced PBR Lighting Rig */}
+        <ambientLight intensity={0.2} />
         <directionalLight 
           castShadow 
           position={[10, 30, 10]} 
-          intensity={1.2} 
+          intensity={2.5} 
           shadow-mapSize={[2048, 2048]}
-        />
+        >
+          <orthographicCamera attach="shadow-camera" args={[-20, 20, 20, -20, 1, 100]} />
+        </directionalLight>
+        
+        <Environment preset="sunset" />
         <fog attach="fog" args={['#87CEEB', 20, 100]} />
         
-        <CameraManager skierX={skierX} isGameOver={isGameOver} />
+        <CameraManager skierX={skierX} isGameOver={isGameOver} trauma={trauma} />
         
         <React.Suspense fallback={null}>
           <AnimatedSkier positionX={skierX} faceState={faceState} speed={currentSpeed.current} isGameOver={isGameOver} />
           <WorldManager 
             skierX={skierX} 
             setFaceState={handleSetFace} 
-            addScore={() => setScore(s => s + 1)} 
+            addScore={() => setScore(s => s + 100)} 
             isGameOver={isGameOver} 
             setIsGameOver={setIsGameOver}
             currentSpeed={currentSpeed}
+            trauma={trauma}
+            triggerHitStop={triggerHitStop}
           />
+          
+          {/* Post-Processing Pipeline */}
+          <EffectComposer>
+            <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.9} intensity={1.5} />
+            <Vignette eskil={false} offset={0.1} darkness={1.1} />
+          </EffectComposer>
         </React.Suspense>
       </Canvas>
     </div>
