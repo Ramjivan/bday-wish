@@ -9,7 +9,7 @@ const SPAWN_Z = -120;
 const DESPAWN_Z = 15;
 const BOUNDARY = 10;
 const BASE_SPEED = 15;
-const TREE_COUNT = 12; // Further reduced for easier gameplay
+const TREE_COUNT = 16; // Balanced density
 const TRAIL_COUNT = 60;
 const FRIEND_COUNT = 12;
 
@@ -230,7 +230,7 @@ const GameManager = ({
   // Sparse Obstacles
   let initialZ = -20;
   const treeData = useRef(Array.from({ length: TREE_COUNT }).map(() => {
-    initialZ -= (30 + Math.random() * 20); // Minimum 30 Z distance between obstacles
+    initialZ -= (20 + Math.random() * 20); // Minimum 20 Z distance between obstacles
     return { x: getSafeX(), z: initialZ };
   }));
 
@@ -425,7 +425,7 @@ const GameManager = ({
       // Respawn (Only if finish line hasn't been spawned to clear the track)
       if (t.z > DESPAWN_Z) {
         if (!finishLineData.current.active) {
-          t.z = maxZ - 30 - Math.random() * 20;
+          t.z = maxZ - 20 - Math.random() * 20;
           t.x = getSafeX();
           maxZ = t.z; // update maxZ for next iter
         } else {
