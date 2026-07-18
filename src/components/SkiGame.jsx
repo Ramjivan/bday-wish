@@ -12,7 +12,7 @@ const BASE_SPEED = 15;
 const TREE_COUNT = 30;
 const PRESENT_COUNT = 10;
 const TRAIL_COUNT = 60;
-const FRIEND_COUNT = 6;
+const FRIEND_COUNT = 12;
 
 // --- 3D ENVIRONMENT ---
 
@@ -107,19 +107,26 @@ const CheeringFriend = forwardRef(({ textureId }, ref) => {
   const textures = useTexture({
     friend1: './faces/friend_1.png',
     friend2: './faces/friend_2.png',
-    friend3: './faces/friend_3.png'
+    friend3: './faces/friend_3.png',
+    friend4: './faces/friend_4.png',
+    friend5: './faces/friend_5.png',
+    friend6: './faces/friend_6.png',
+    friend7: './faces/friend_7.png',
+    friend8: './faces/friend_8.png'
   });
   Object.values(textures).forEach(tex => {
     if (tex) tex.colorSpace = THREE.SRGBColorSpace;
   });
 
-  const map = textureId === 0 ? textures.friend1 : textureId === 1 ? textures.friend2 : textures.friend3;
+  const texArray = [textures.friend1, textures.friend2, textures.friend3, textures.friend4, textures.friend5, textures.friend6, textures.friend7, textures.friend8];
+  const map = texArray[textureId] || textures.friend1;
+  const colors = ['#ff5555', '#55ff55', '#5555ff', '#ffaa00', '#aa00ff', '#00aaff', '#ff00aa', '#00ffaa'];
 
   return (
     <group ref={ref}>
       <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
         <capsuleGeometry args={[0.4, 1.2, 4, 16]} />
-        <meshStandardMaterial color={['#ff5555', '#55ff55', '#5555ff'][textureId]} roughness={0.7} />
+        <meshStandardMaterial color={colors[textureId] || '#ffffff'} roughness={0.7} />
       </mesh>
       <Billboard position={[0, 3.2, 0.2]} args={[2.5, 2.5]}>
         <mesh>
@@ -195,7 +202,7 @@ const GameManager = ({
   const friendData = useRef(Array.from({ length: FRIEND_COUNT }).map(() => ({
     x: (Math.random() > 0.5 ? 1 : -1) * (12 + Math.random() * 8), // Sides
     z: -(Math.random() * 200) - 50,
-    textureId: Math.floor(Math.random() * 3),
+    textureId: Math.floor(Math.random() * 8),
     yOffset: Math.random() * Math.PI * 2
   })));
   const friendRefs = useRef([]);
