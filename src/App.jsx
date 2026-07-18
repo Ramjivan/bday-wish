@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Message from './components/Message';
 import DiamondGame from './components/DiamondGame';
+import SkiGame from './components/SkiGame';
 import { playASMRClick } from './utils/audio';
 import { translations } from './translations';
 
@@ -14,6 +15,9 @@ export default function App() {
   // Allow skipping straight to the game via URL: ?game=true
   const [isPlayingGame, setIsPlayingGame] = useState(() => {
     return new URLSearchParams(window.location.search).get('game') === 'true';
+  });
+  const [isPlayingSkiGame, setIsPlayingSkiGame] = useState(() => {
+    return new URLSearchParams(window.location.search).get('ski') === 'true';
   });
   
   const videoRef = useRef(null);
@@ -144,9 +148,29 @@ export default function App() {
 
       {/* Game UI */}
       <AnimatePresence>
-         {isPlayingGame && (
-           <DiamondGame onBack={() => setIsPlayingGame(false)} />
+         {isPlayingGame && !isPlayingSkiGame && (
+           <DiamondGame 
+             onBack={() => setIsPlayingGame(false)} 
+             onFinishGame={() => {
+               playASMRClick();
+               setIsPlayingSkiGame(true);
+             }}
+           />
          )}
+      </AnimatePresence>
+
+      {/* 3D Ski Game UI */}
+      <AnimatePresence>
+        {isPlayingSkiGame && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-[600]"
+          >
+            <SkiGame />
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

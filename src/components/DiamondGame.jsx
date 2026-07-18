@@ -29,7 +29,7 @@ function hexToRgb(hex) {
   ] : [0, 0, 0];
 }
 
-export default function DiamondGame({ onBack }) {
+export default function DiamondGame({ onBack, onFinishGame }) {
   const [grid, setGrid] = useState([]);
   const [cols, setCols] = useState(0);
   const [rows, setRows] = useState(0);
@@ -314,6 +314,23 @@ export default function DiamondGame({ onBack }) {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {isFinished && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1 }}
+                className="mt-12 flex justify-center w-full z-50 pointer-events-auto"
+              >
+                <button 
+                  onClick={onFinishGame}
+                  className="px-8 py-4 bg-sky-500 hover:bg-sky-400 text-white text-xl font-black rounded-2xl shadow-[0_0_20px_rgba(14,165,233,0.8)] border-2 border-white transition hover:scale-105 active:scale-95 flex items-center gap-3"
+                >
+                  <span>Play Lada's Alpine Adventure!</span>
+                  <span className="text-2xl">⛷️</span>
+                </button>
+              </motion.div>
+            )}
 
           </div>
         ) : (
