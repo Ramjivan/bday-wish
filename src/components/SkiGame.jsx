@@ -5,14 +5,68 @@ import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 
 // --- CONSTANTS ---
-const SPAWN_Z = -120;
 const DESPAWN_Z = 15;
 const BOUNDARY = 10;
 const BASE_SPEED = 15;
-const TREE_COUNT = 16; // Balanced density
-const RAMP_COUNT = 3;
 const TRAIL_COUNT = 60;
 const FRIEND_COUNT = 12;
+
+// --- TRACK DESIGN ENGINE ---
+const TRACK_MAP = [
+  ".......", ".......", ".......",
+  "..T....", ".....T.", ".......", 
+  "...R...", ".......", "T......",
+  ".......", ".S...S.", ".......",
+  "..T.B..", ".......", "....R..",
+  ".......", "T.....T", ".......",
+  "...P...", ".......", "S.....S",
+  "..B....", "....B..", ".......",
+  ".T...T.", ".......", "..R....",
+  ".......", "T.T.T.T", ".......",
+  ".......", "..B....", "...S...",
+  "T......", "......T", ".......",
+  "...R...", ".......", ".T...T.",
+  ".......", "S..P..S", ".......",
+  "..T.T..", ".......", "....B..",
+  ".......", ".R.....", ".......",
+  "B.....B", ".......", "..S.S..",
+  ".......", "T..T..T", ".......",
+  "...R...", ".......", ".......",
+  "T.....T", ".......", "..B....",
+  ".......", "....S..", ".......",
+  "..T....", ".......", ".R.....",
+  ".......", "T.....T", ".......",
+  "...B...", ".......", "S.....S",
+  ".......", "T..T..T", ".......",
+  "..R.R..", ".......", ".......",
+  "B.....B", ".......", ".......",
+  ".......", ".......", ".......",
+];
+
+const ALL_PINES = [];
+const ALL_BUSHES = [];
+const ALL_BOULDERS = [];
+const ALL_RAMPS = [];
+const ALL_PRESENTS = [];
+
+TRACK_MAP.forEach((row, i) => {
+  const worldZ = -40 - (i * 20);
+  for (let c = 0; c < row.length; c++) {
+    const x = -9 + c * 3;
+    const char = row[c];
+    if (char === 'T') ALL_PINES.push({ x, worldZ });
+    if (char === 'S') ALL_BUSHES.push({ x, worldZ });
+    if (char === 'B') ALL_BOULDERS.push({ x, worldZ });
+    if (char === 'R') ALL_RAMPS.push({ x, worldZ });
+    if (char === 'P') ALL_PRESENTS.push({ x, worldZ, collected: false, scale: 1 });
+  }
+});
+const FINISH_LINE_WORLD_Z = -40 - (TRACK_MAP.length * 20);
+
+const PINE_POOL_SIZE = Math.min(20, ALL_PINES.length);
+const BUSH_POOL_SIZE = Math.min(15, ALL_BUSHES.length);
+const BOULDER_POOL_SIZE = Math.min(15, ALL_BOULDERS.length);
+const RAMP_POOL_SIZE = Math.min(5, ALL_RAMPS.length);
 
 // --- 3D ENVIRONMENT ---
 
@@ -205,9 +259,7 @@ const GameManager = ({
   const trauma = useRef(0);
   const hitStopTime = useRef(0);
   const worldDistance = useRef(0);
-  const gameTime = useRef(0);
   const faceTimer = useRef(null);
-
   const flipState = useRef({ active: false, time: 0 });
 
   const handleSetFace = (state) => {
@@ -222,65 +274,34 @@ const GameManager = ({
   const leftArm = useRef();
   const rightArm = useRef();
   const worldGroup = useRef();
-
-  // Spacing logic helper
-  const getSafeX = (bounds = BOUNDARY) => {
-    return (Math.random() * bounds * 2) - bounds;
-  };
-
-  // Sparse Obstacles
-  let initialZ = -20;
-  const treeData = useRef(Array.from({ length: TREE_COUNT }).map(() => {
-    initialZ -= (20 + Math.random() * 20); // Minimum 20 Z distance between obstacles
-    return { x: getSafeX(), z: initialZ };
-  }));
-
-  // 3 Ramps
-  const rampData = useRef(Array.from({ length: RAMP_COUNT }).map((_, i) => ({ 
-    x: (Math.random() * 16) - 8, 
-    z: -100 - (i * 80) 
-  })));
-  const rampRefs = useRef([]);
-
-  // 2 Presents (spawned specifically at certain times, initially hidden)
-  const presentData = useRef([
-    { x: 0, z: -300, collected: false, scale: 1, active: false, triggerTime: 20 },
-    { x: 0, z: -300, collected: false, scale: 1, active: false, triggerTime: 60 }
-  ]);
-  
-  const finishLineData = useRef({ z: -500, active: false });
   const finishLineRef = useRef();
+  const trailMeshRef = useRef();
+
+  // POOLS
+  const initPool = (ALL_ITEMS, size) => ({
+    nextIdx: size,
+    data: Array.from({ length: size }).map((_, i) => (i < ALL_ITEMS.length ? { ...ALL_ITEMS[i], active: true } : { active: false, worldZ: 1000 })),
+    refs: Array.from({ length: size }).map(() => null)
+  });
+
+  const pines = useRef(initPool(ALL_PINES, PINE_POOL_SIZE));
+  const bushes = useRef(initPool(ALL_BUSHES, BUSH_POOL_SIZE));
+  const boulders = useRef(initPool(ALL_BOULDERS, BOULDER_POOL_SIZE));
+  const ramps = useRef(initPool(ALL_RAMPS, RAMP_POOL_SIZE));
+
+  const presentsData = useRef(ALL_PRESENTS.map(p => ({ ...p, active: true })));
+  const presentRefs = useRef([]);
 
   const trailData = useRef(new Array(TRAIL_COUNT).fill({ active: false, x: 0, z: 0 }));
   const trailIndex = useRef(0);
 
   const popData = useRef(new Array(5).fill({ active: false, x: 0, y: 0, z: 0, age: 0 }));
   const popIndex = useRef(0);
-
-  const treeRefs = useRef([]);
-  const presentRefs = useRef([]);
-  const trailMeshRef = useRef();
   const popRefs = useRef([]);
 
-  const friendData = useRef(Array.from({ length: FRIEND_COUNT }).map(() => ({
-    x: (Math.random() > 0.5 ? 1 : -1) * (12 + Math.random() * 8), // Sides
-    z: -(Math.random() * 200) - 50,
-    textureId: Math.floor(Math.random() * 8),
-    yOffset: Math.random() * Math.PI * 2,
-    isAtFinish: false
-  })));
+  // Setup friends at the finish line
+  const friendsStatic = useMemo(() => Array.from({ length: FRIEND_COUNT }).map(() => Math.floor(Math.random() * 8)), []);
   const friendRefs = useRef([]);
-  const friendsStatic = useMemo(() => Array.from({ length: FRIEND_COUNT }).map((_, i) => friendData.current[i].textureId), []);
-
-  const treesStatic = useMemo(() => Array.from({ length: TREE_COUNT }).map(() => ({
-    scale: 0.8 + Math.random() * 0.7,
-    type: Math.floor(Math.random() * 5),
-  })), []);
-  
-  const presentsStatic = useMemo(() => Array.from({ length: 2 }).map(() => ({
-    color: ['#ff0000', '#00ff00', '#0000ff', '#ffff00'][Math.floor(Math.random() * 4)],
-    rotY: Math.random() * Math.PI,
-  })), []);
 
   const textures = useTexture({ normal: './faces/face_normal.png', jump: './faces/face_jump.png', dodge: './faces/face_dodge.png', crash: './faces/face_crash.png' });
   Object.values(textures).forEach(tex => tex.colorSpace = THREE.SRGBColorSpace);
@@ -293,23 +314,6 @@ const GameManager = ({
     const time = state.clock.elapsedTime;
 
     if (time < hitStopTime.current) return;
-
-    if (!isGameOverRef.current && !isGameWonRef.current) {
-      gameTime.current += dt;
-    }
-
-    // WIN STATE TRIGGER
-    if (gameTime.current > 100 && !finishLineData.current.active && !isGameOverRef.current && !isGameWonRef.current) {
-      finishLineData.current.active = true;
-      finishLineData.current.z = SPAWN_Z; // spawn ahead
-      // Move all friends to the finish line
-      for (let i = 0; i < FRIEND_COUNT; i++) {
-        let f = friendData.current[i];
-        f.isAtFinish = true;
-        f.z = finishLineData.current.z - 5 + (Math.random() * 3);
-        f.x = (i - FRIEND_COUNT/2) * 2; // Line them up
-      }
-    }
 
     // 3. SKIER PHYSICS & INPUT
     if (!isGameOverRef.current && !isGameWonRef.current && !flipState.current.active) {
@@ -356,18 +360,15 @@ const GameManager = ({
         skierGroup.current.position.y = 0;
         skierGroup.current.rotation.y = THREE.MathUtils.lerp(skierGroup.current.rotation.y, Math.PI, dt * 2); // Turn around to face camera
       } else if (flipState.current.active) {
-        // Airborne Flip Physics
         flipState.current.time += dt;
-        const flipProgress = flipState.current.time / 1.5; // 1.5s airtime
+        const flipProgress = flipState.current.time / 1.5; 
         
         if (flipProgress >= 1.0) {
           flipState.current.active = false;
           skierGroup.current.rotation.x = 0;
           skierGroup.current.position.y = 0;
         } else {
-          // Parabola: y = 4h * p * (1-p)
           skierGroup.current.position.y = 4 * 6 * flipProgress * (1 - flipProgress);
-          // Spin 360 (or 720)
           skierGroup.current.rotation.x = -flipProgress * Math.PI * 2;
         }
       } else {
@@ -382,7 +383,7 @@ const GameManager = ({
       }
     }
 
-    // 6. CAMERA & SHAKE
+    // 6. CAMERA
     if (trauma.current > 0) trauma.current = Math.max(0, trauma.current - dt * 1.2);
     const shake = trauma.current * trauma.current;
     
@@ -391,7 +392,6 @@ const GameManager = ({
     let baseCamY = THREE.MathUtils.lerp(state.camera.position.y, isGameOverRef.current ? 8 : (flipState.current.active ? 10 : 4.5), dt * 2);
     let baseCamZ = THREE.MathUtils.lerp(state.camera.position.z, isGameOverRef.current ? 20 : 12, dt * 2);
     
-    // Win Cinematic Camera
     if (isGameWonRef.current) {
       baseCamX = THREE.MathUtils.lerp(state.camera.position.x, skierXRef.current + Math.sin(time) * 15, dt * 2);
       baseCamY = THREE.MathUtils.lerp(state.camera.position.y, 10, dt * 2);
@@ -406,127 +406,115 @@ const GameManager = ({
     }
     state.camera.lookAt(skierXRef.current * (isGameWonRef.current ? 1 : 0.2), isGameWonRef.current ? 2 : 0, isGameWonRef.current ? 0 : -5);
 
-    // 7. COLLISION & OBJECT POOLING
-    let hitTree = false;
+    // 7. POOL RENDER & COLLISION
+    let hitObstacle = false;
     let grabbedId = null;
 
-    // A. Update Trees
-    let maxZ = -100;
-    for (let i = 0; i < TREE_COUNT; i++) {
-      let t = treeData.current[i];
-      if (t.z < maxZ) maxZ = t.z; // Track furthest tree to spawn new ones behind it
-    }
-
-    for (let i = 0; i < TREE_COUNT; i++) {
-      let t = treeData.current[i];
-      t.z += speedRef.current * dt;
-      
-      // Collision (ignored if flipping, winning, or dead)
-      if (!isGameOverRef.current && !isGameWonRef.current && !flipState.current.active && t.z > -1 && t.z < 1.5) {
-        if (Math.abs(t.x - skierXRef.current) < 1.8) hitTree = true;
-      }
-      
-      // Respawn (Only if finish line hasn't been spawned to clear the track)
-      if (t.z > DESPAWN_Z) {
-        if (!finishLineData.current.active) {
-          t.z = maxZ - 20 - Math.random() * 20;
-          t.x = getSafeX();
-          maxZ = t.z; // update maxZ for next iter
-        } else {
-          t.z = 1000; // throw it away
+    const processObstaclePool = (pool, ALL_ITEMS, hitRadius) => {
+      for (let i = 0; i < pool.data.length; i++) {
+        let item = pool.data[i];
+        if (!item.active) continue;
+        
+        let localZ = item.worldZ + worldDistance.current;
+        
+        if (!isGameOverRef.current && !isGameWonRef.current && !flipState.current.active && localZ > -1 && localZ < 1.5) {
+          if (Math.abs(item.x - skierXRef.current) < hitRadius) hitObstacle = true;
         }
+        
+        if (localZ > DESPAWN_Z) {
+          if (pool.nextIdx < ALL_ITEMS.length) {
+            const nextItem = ALL_ITEMS[pool.nextIdx];
+            item.x = nextItem.x;
+            item.worldZ = nextItem.worldZ;
+            pool.nextIdx++;
+            localZ = item.worldZ + worldDistance.current;
+          } else {
+            item.active = false;
+            localZ = 1000;
+          }
+        }
+        if (pool.refs[i]) pool.refs[i].position.set(item.x, 0, localZ);
       }
-      
-      if (treeRefs.current[i]) treeRefs.current[i].position.set(t.x, 0, t.z);
-    }
+    };
 
-    // B. Update Ramps
-    for (let i = 0; i < RAMP_COUNT; i++) {
-      let r = rampData.current[i];
-      r.z += speedRef.current * dt;
-      if (!isGameOverRef.current && !isGameWonRef.current && !flipState.current.active && r.z > -1 && r.z < 1.5) {
-        if (Math.abs(r.x - skierXRef.current) < 2.0) {
-          // HIT RAMP
+    processObstaclePool(pines.current, ALL_PINES, 1.8);
+    processObstaclePool(bushes.current, ALL_BUSHES, 1.5);
+    processObstaclePool(boulders.current, ALL_BOULDERS, 1.8);
+
+    // Update Ramps
+    const rPool = ramps.current;
+    for (let i = 0; i < rPool.data.length; i++) {
+      let item = rPool.data[i];
+      if (!item.active) continue;
+      let localZ = item.worldZ + worldDistance.current;
+      
+      if (!isGameOverRef.current && !isGameWonRef.current && !flipState.current.active && localZ > -1 && localZ < 1.5) {
+        if (Math.abs(item.x - skierXRef.current) < 2.0) {
           flipState.current.active = true;
           flipState.current.time = 0;
           faceStateRef.current = 'jump';
           handleSetFace('jump');
         }
       }
-      if (r.z > DESPAWN_Z) {
-        if (!finishLineData.current.active) {
-          r.z = SPAWN_Z - Math.random() * 100 - 50; 
-          r.x = (Math.random() * 16) - 8;
-        } else {
-          r.z = 1000;
-        }
-      }
-      if (rampRefs.current[i]) rampRefs.current[i].position.set(r.x, 0, r.z);
-    }
-
-    // C. Update Presents
-    for (let i = 0; i < 2; i++) {
-      let p = presentData.current[i];
-      if (!p.active && gameTime.current > p.triggerTime && !finishLineData.current.active) {
-        p.active = true;
-        p.z = SPAWN_Z;
-        p.x = (Math.random() * 16) - 8;
-      }
-
-      if (p.active) {
-        p.z += speedRef.current * dt;
-        
-        if (!isGameOverRef.current && !isGameWonRef.current && !p.collected && p.z > -1 && p.z < 1.5) {
-          if (Math.abs(p.x - skierXRef.current) < 1.6 && !flipState.current.active) { // Hard to grab mid-flip unless perfectly aligned
-            grabbedId = i;
-            p.collected = true;
-            p.scale = 1.5;
-          }
-        }
-        
-        if (p.collected) p.scale = THREE.MathUtils.lerp(p.scale, 0, dt * 15);
-        
-        if (presentRefs.current[i]) {
-          presentRefs.current[i].position.set(p.x, 0, p.z);
-          presentRefs.current[i].scale.setScalar(p.scale);
-        }
-      } else {
-        if (presentRefs.current[i]) presentRefs.current[i].position.set(0, -100, 0);
-      }
-    }
-
-    // D. Update Friends
-    for (let i = 0; i < FRIEND_COUNT; i++) {
-      let f = friendData.current[i];
-      f.z += speedRef.current * dt;
       
-      if (!f.isAtFinish && f.z > DESPAWN_Z && !finishLineData.current.active) {
-        f.z = SPAWN_Z - Math.random() * 100;
-        f.x = (Math.random() > 0.5 ? 1 : -1) * (12 + Math.random() * 8);
+      if (localZ > DESPAWN_Z) {
+        if (rPool.nextIdx < ALL_RAMPS.length) {
+          const nextItem = ALL_RAMPS[rPool.nextIdx];
+          item.x = nextItem.x;
+          item.worldZ = nextItem.worldZ;
+          rPool.nextIdx++;
+          localZ = item.worldZ + worldDistance.current;
+        } else {
+          item.active = false;
+          localZ = 1000;
+        }
       }
+      if (rPool.refs[i]) rPool.refs[i].position.set(item.x, 0, localZ);
+    }
 
-      if (friendRefs.current[i]) {
-        const jumpY = Math.abs(Math.sin(time * 8 + f.yOffset)) * 1.5;
-        friendRefs.current[i].position.set(f.x, jumpY, f.z);
+    // Update Presents
+    for (let i = 0; i < presentsData.current.length; i++) {
+      let p = presentsData.current[i];
+      if (!p.active) continue;
+      
+      let localZ = p.worldZ + worldDistance.current;
+      
+      if (!isGameOverRef.current && !isGameWonRef.current && !p.collected && localZ > -1 && localZ < 1.5) {
+        if (Math.abs(p.x - skierXRef.current) < 1.6 && !flipState.current.active) { 
+          grabbedId = i;
+          p.collected = true;
+          p.scale = 1.5;
+        }
+      }
+      
+      if (p.collected) p.scale = THREE.MathUtils.lerp(p.scale, 0, dt * 15);
+      
+      if (presentRefs.current[i]) {
+        presentRefs.current[i].position.set(p.x, 0, localZ);
+        presentRefs.current[i].scale.setScalar(p.scale);
       }
     }
 
-    // E. Update Finish Line
-    if (finishLineData.current.active) {
-      finishLineData.current.z += speedRef.current * dt;
-      if (finishLineRef.current) finishLineRef.current.position.set(0, 0, finishLineData.current.z);
-
-      // CROSS FINISH LINE
-      if (!isGameWonRef.current && finishLineData.current.z > 0) {
-        isGameWonRef.current = true;
-        setIsGameWon(true);
-        faceStateRef.current = 'jump';
-        handleSetFace('jump');
+    // Finish Line & Friends
+    let finishZ = FINISH_LINE_WORLD_Z + worldDistance.current;
+    if (finishLineRef.current) finishLineRef.current.position.set(0, 0, finishZ);
+    
+    for (let i = 0; i < FRIEND_COUNT; i++) {
+      if (friendRefs.current[i]) {
+        const jumpY = Math.abs(Math.sin(time * 8 + (i * Math.PI/4))) * 1.5;
+        friendRefs.current[i].position.set((i - FRIEND_COUNT/2) * 2, jumpY, finishZ - 5 + (i % 2)*2);
       }
+    }
+
+    if (!isGameWonRef.current && finishZ > 0) {
+      isGameWonRef.current = true;
+      setIsGameWon(true);
+      faceStateRef.current = 'jump';
+      handleSetFace('jump');
     }
 
     // F. Process Hits/Grabs
-    if (hitTree && !isGameOverRef.current) {
+    if (hitObstacle && !isGameOverRef.current) {
       isGameOverRef.current = true;
       setIsGameOver(true);
       faceStateRef.current = 'crash';
@@ -539,11 +527,11 @@ const GameManager = ({
       addScore();
       
       const idx = popIndex.current;
-      popData.current[idx] = { active: true, x: presentData.current[grabbedId].x, y: 2, z: presentData.current[grabbedId].z, age: 0 };
+      popData.current[idx] = { active: true, x: presentsData.current[grabbedId].x, y: 2, z: presentsData.current[grabbedId].worldZ + worldDistance.current, age: 0 };
       popIndex.current = (idx + 1) % 5;
     }
 
-    // 8. UPDATE PARTICLES (TRAILS)
+    // 8. UPDATE PARTICLES
     if (!isGameOverRef.current && !isGameWonRef.current && !flipState.current.active) {
       const tIdx = trailIndex.current;
       trailData.current[tIdx] = { active: true, x: skierXRef.current, z: 0 };
@@ -595,17 +583,24 @@ const GameManager = ({
         <meshStandardMaterial color="#ffffff" transparent opacity={0.6} roughness={0.8} />
       </instancedMesh>
       
-      {treesStatic.map((props, i) => (
-        <ProceduralObstacle key={`tree-${i}`} ref={el => treeRefs.current[i] = el} {...props} />
+      {Array.from({ length: PINE_POOL_SIZE }).map((_, i) => (
+        <ProceduralObstacle key={`pine-${i}`} type={0} ref={el => pines.current.refs[i] = el} />
+      ))}
+      {Array.from({ length: BUSH_POOL_SIZE }).map((_, i) => (
+        <ProceduralObstacle key={`bush-${i}`} type={1} ref={el => bushes.current.refs[i] = el} />
+      ))}
+      {Array.from({ length: BOULDER_POOL_SIZE }).map((_, i) => (
+        <ProceduralObstacle key={`boulder-${i}`} type={3} ref={el => boulders.current.refs[i] = el} />
       ))}
 
-      {Array.from({ length: RAMP_COUNT }).map((_, i) => (
-        <SkiRamp key={`ramp-${i}`} ref={el => rampRefs.current[i] = el} />
+      {Array.from({ length: RAMP_POOL_SIZE }).map((_, i) => (
+        <SkiRamp key={`ramp-${i}`} ref={el => ramps.current.refs[i] = el} />
       ))}
-      <FinishLine ref={finishLineRef} position={[0, -100, 0]} />
+      
+      <FinishLine ref={finishLineRef} />
 
-      {presentsStatic.map((props, i) => (
-        <PremiumPresent key={`present-${i}`} ref={el => presentRefs.current[i] = el} {...props} />
+      {ALL_PRESENTS.map((p, i) => (
+        <PremiumPresent key={`present-${i}`} color={['#ff0000', '#00ff00', '#0000ff'][i%3]} rotationY={Math.PI/4} ref={el => presentRefs.current[i] = el} />
       ))}
 
       {friendsStatic.map((textureId, i) => (
