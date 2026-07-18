@@ -88,8 +88,8 @@ const LadaSkier = ({ positionX, faceState }) => {
       {/* The Bobblehead Face! */}
       <Billboard position={[0, 2.5, 0]} args={[2.5, 2.5]}>
         <mesh>
-          <planeGeometry args={[1.5, 1.5]} />
-          <meshBasicMaterial map={textures[faceState]} transparent={true} />
+          <circleGeometry args={[1.2, 32]} />
+          <meshBasicMaterial map={textures[faceState]} />
         </mesh>
       </Billboard>
 
