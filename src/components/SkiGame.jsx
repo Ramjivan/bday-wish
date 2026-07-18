@@ -12,6 +12,7 @@ const BASE_SPEED = 15;
 const TREE_COUNT = 30;
 const PRESENT_COUNT = 10;
 const TRAIL_COUNT = 60;
+const FRIEND_COUNT = 6;
 
 // --- 3D ENVIRONMENT ---
 
@@ -101,6 +102,35 @@ const FloatingScore = forwardRef((props, ref) => {
   );
 });
 
+// A cheering friend on the side of the track
+const CheeringFriend = forwardRef(({ textureId }, ref) => {
+  const textures = useTexture({
+    friend1: './faces/friend_1.png',
+    friend2: './faces/friend_2.png',
+    friend3: './faces/friend_3.png'
+  });
+  Object.values(textures).forEach(tex => {
+    if (tex) tex.colorSpace = THREE.SRGBColorSpace;
+  });
+
+  const map = textureId === 0 ? textures.friend1 : textureId === 1 ? textures.friend2 : textures.friend3;
+
+  return (
+    <group ref={ref}>
+      <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
+        <capsuleGeometry args={[0.4, 1.2, 4, 16]} />
+        <meshStandardMaterial color={['#ff5555', '#55ff55', '#5555ff'][textureId]} roughness={0.7} />
+      </mesh>
+      <Billboard position={[0, 3.2, 0.2]} args={[2.5, 2.5]}>
+        <mesh>
+          <circleGeometry args={[1.2, 32]} />
+          <meshBasicMaterial map={map} transparent />
+        </mesh>
+      </Billboard>
+    </group>
+  );
+});
+
 // --- SINGLE CENTRAL GAME ENGINE ---
 const GameManager = ({ 
   skierXRef, 
@@ -161,6 +191,15 @@ const GameManager = ({
   const presentRefs = useRef([]);
   const trailMeshRef = useRef();
   const popRefs = useRef([]);
+
+  const friendData = useRef(Array.from({ length: FRIEND_COUNT }).map(() => ({
+    x: (Math.random() > 0.5 ? 1 : -1) * (12 + Math.random() * 8), // Sides
+    z: -(Math.random() * 200) - 50,
+    textureId: Math.floor(Math.random() * 3),
+    yOffset: Math.random() * Math.PI * 2
+  })));
+  const friendRefs = useRef([]);
+  const friendsStatic = useMemo(() => Array.from({ length: FRIEND_COUNT }).map((_, i) => friendData.current[i].textureId), []);
 
   // Generate static props for rendering (never changes)
   const treesStatic = useMemo(() => Array.from({ length: TREE_COUNT }).map(() => ({
@@ -336,6 +375,22 @@ const GameManager = ({
       }
     }
 
+    // B2. Update Friends
+    for (let i = 0; i < FRIEND_COUNT; i++) {
+      let f = friendData.current[i];
+      f.z += speedRef.current * dt;
+      
+      if (f.z > DESPAWN_Z) {
+        f.z = SPAWN_Z - Math.random() * 100;
+        f.x = (Math.random() > 0.5 ? 1 : -1) * (12 + Math.random() * 8);
+      }
+
+      if (friendRefs.current[i]) {
+        const jumpY = Math.abs(Math.sin(time * 8 + f.yOffset)) * 1.5;
+        friendRefs.current[i].position.set(f.x, jumpY, f.z);
+      }
+    }
+
     // C. Process Hits/Grabs
     if (hitTree && !isGameOverRef.current) {
       isGameOverRef.current = true;
@@ -422,6 +477,11 @@ const GameManager = ({
       {/* POOLED PRESENTS */}
       {presentsStatic.map((props, i) => (
         <PremiumPresent key={`present-${i}`} ref={el => presentRefs.current[i] = el} {...props} />
+      ))}
+
+      {/* POOLED FRIENDS */}
+      {friendsStatic.map((textureId, i) => (
+        <CheeringFriend key={`friend-${i}`} textureId={textureId} ref={el => friendRefs.current[i] = el} />
       ))}
 
       {/* POOLED FLOATING SCORES */}
