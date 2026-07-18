@@ -112,7 +112,7 @@ const SkiRamp = forwardRef((props, ref) => (
 ));
 
 const FinishLine = forwardRef((props, ref) => (
-  <group ref={ref}>
+  <group ref={ref} {...props}>
     {/* Poles */}
     <mesh position={[-5, 4, 0]} castShadow>
       <cylinderGeometry args={[0.2, 0.2, 8]} />
