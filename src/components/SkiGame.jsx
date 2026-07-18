@@ -10,6 +10,7 @@ const DESPAWN_Z = 15;
 const BOUNDARY = 10;
 const BASE_SPEED = 15;
 const TREE_COUNT = 16; // Balanced density
+const RAMP_COUNT = 3;
 const TRAIL_COUNT = 60;
 const FRIEND_COUNT = 12;
 
@@ -99,8 +100,8 @@ const ProceduralObstacle = forwardRef(({ scale = 1, type = 0 }, ref) => (
 ));
 
 const SkiRamp = forwardRef((props, ref) => (
-  <group ref={ref}>
-    <mesh position={[0, 0.5, 0]} rotation={[-Math.PI / 8, 0, 0]} castShadow receiveShadow>
+  <group ref={ref} {...props}>
+    <mesh position={[0, 0.5, 0]} rotation={[Math.PI / 8, 0, 0]} castShadow receiveShadow>
       <boxGeometry args={[3, 0.2, 4]} />
       <meshStandardMaterial color="#ffffff" roughness={0.8} />
     </mesh>
@@ -234,9 +235,12 @@ const GameManager = ({
     return { x: getSafeX(), z: initialZ };
   }));
 
-  // 1 Ramp
-  const rampData = useRef({ x: (Math.random() * 8) - 4, z: -150 });
-  const rampRef = useRef();
+  // 3 Ramps
+  const rampData = useRef(Array.from({ length: RAMP_COUNT }).map((_, i) => ({ 
+    x: (Math.random() * 16) - 8, 
+    z: -100 - (i * 80) 
+  })));
+  const rampRefs = useRef([]);
 
   // 2 Presents (spawned specifically at certain times, initially hidden)
   const presentData = useRef([
@@ -436,27 +440,29 @@ const GameManager = ({
       if (treeRefs.current[i]) treeRefs.current[i].position.set(t.x, 0, t.z);
     }
 
-    // B. Update Ramp
-    let r = rampData.current;
-    r.z += speedRef.current * dt;
-    if (!isGameOverRef.current && !isGameWonRef.current && !flipState.current.active && r.z > -1 && r.z < 1.5) {
-      if (Math.abs(r.x - skierXRef.current) < 2.0) {
-        // HIT RAMP
-        flipState.current.active = true;
-        flipState.current.time = 0;
-        faceStateRef.current = 'jump';
-        handleSetFace('jump');
+    // B. Update Ramps
+    for (let i = 0; i < RAMP_COUNT; i++) {
+      let r = rampData.current[i];
+      r.z += speedRef.current * dt;
+      if (!isGameOverRef.current && !isGameWonRef.current && !flipState.current.active && r.z > -1 && r.z < 1.5) {
+        if (Math.abs(r.x - skierXRef.current) < 2.0) {
+          // HIT RAMP
+          flipState.current.active = true;
+          flipState.current.time = 0;
+          faceStateRef.current = 'jump';
+          handleSetFace('jump');
+        }
       }
-    }
-    if (r.z > DESPAWN_Z) {
-      if (!finishLineData.current.active) {
-        r.z = SPAWN_Z - Math.random() * 200 - 100; // Rare
-        r.x = (Math.random() * 16) - 8;
-      } else {
-        r.z = 1000;
+      if (r.z > DESPAWN_Z) {
+        if (!finishLineData.current.active) {
+          r.z = SPAWN_Z - Math.random() * 100 - 50; 
+          r.x = (Math.random() * 16) - 8;
+        } else {
+          r.z = 1000;
+        }
       }
+      if (rampRefs.current[i]) rampRefs.current[i].position.set(r.x, 0, r.z);
     }
-    if (rampRef.current) rampRef.current.position.set(r.x, 0, r.z);
 
     // C. Update Presents
     for (let i = 0; i < 2; i++) {
@@ -593,7 +599,9 @@ const GameManager = ({
         <ProceduralObstacle key={`tree-${i}`} ref={el => treeRefs.current[i] = el} {...props} />
       ))}
 
-      <SkiRamp ref={rampRef} />
+      {Array.from({ length: RAMP_COUNT }).map((_, i) => (
+        <SkiRamp key={`ramp-${i}`} ref={el => rampRefs.current[i] = el} />
+      ))}
       <FinishLine ref={finishLineRef} position={[0, -100, 0]} />
 
       {presentsStatic.map((props, i) => (
