@@ -186,7 +186,7 @@ export default function DiamondGame({ onBack }) {
   const downloadArtwork = () => {
     const link = document.createElement('a');
     link.download = 'lada_diamond_masterpiece.png';
-    link.href = '/diamond_masterpiece.png';
+    link.href = './diamond_masterpiece.png';
     link.click();
   };
 
@@ -255,7 +255,7 @@ export default function DiamondGame({ onBack }) {
             
             {/* Hidden High-Res Image Underneath (The Masterpiece!) */}
             <img 
-              src="/diamond_masterpiece.png"
+              src="./diamond_masterpiece.png"
               className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none rounded-md"
               alt="Hidden Masterpiece"
             />

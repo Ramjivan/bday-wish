@@ -114,7 +114,7 @@ export default function Message({ lang, onFinish }) {
                     {idx === visibleChars - 1 && (
                       <span className="relative inline-block w-0 h-full align-bottom">
                         <motion.img 
-                          src="/peacock_pen.png" 
+                          src="./peacock_pen.png" 
                           className="absolute bottom-1 left-0 w-48 md:w-64 h-auto origin-bottom-left pointer-events-none z-[100]"
                           animate={{ rotate: [-4, 6, -2, 7, -1] }}
                           transition={{ repeat: Infinity, duration: 0.12 }}

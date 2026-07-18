@@ -17,7 +17,7 @@ export default function App() {
   });
   
   const videoRef = useRef(null);
-  const audioRef = useRef(new Audio('/hbd.mp3'));
+  const audioRef = useRef(new Audio('./hbd.mp3'));
   
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -81,7 +81,7 @@ export default function App() {
       {/* Background Video */}
       <video
         ref={videoRef}
-        src="/bg_video.mp4"
+        src="./bg_video.mp4"
         className="absolute inset-0 w-full h-full object-cover transition-opacity duration-1000"
         style={{ opacity: step === 0 && !isPlaying ? 0 : 1 }}
         onTimeUpdate={handleTimeUpdate}
