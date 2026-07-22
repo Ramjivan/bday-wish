@@ -735,12 +735,11 @@ export default function SkiGame() {
       )}
 
       {isGameWon && (
-        <div className="absolute inset-0 z-50 bg-black/10 flex flex-col items-center justify-center animate-in fade-in duration-1000">
-          <div className="bg-white/20 p-12 rounded-3xl border border-white/40 shadow-[0_0_100px_rgba(255,255,255,0.8)] flex flex-col items-center text-center backdrop-blur-lg mt-20">
-            <h2 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 mb-6 drop-shadow-[0_5px_5px_rgba(0,0,0,0.3)]">HAPPY BIRTHDAY!</h2>
-            <img src={`./faces/face_jump.png`} className="w-48 h-48 rounded-full border-8 border-white shadow-2xl mb-8 object-cover animate-bounce" alt="Win Face" />
-            <p className="text-4xl text-white font-bold mb-10 drop-shadow-md">You collected {score/100} / 2 Gifts!</p>
-            <button onClick={restartGame} className="px-12 py-6 bg-cyan-500 hover:bg-cyan-400 text-white text-3xl font-black rounded-full shadow-[0_0_40px_rgba(6,182,212,1)] border-4 border-white transition hover:scale-110 active:scale-95">
+        <div className="absolute inset-0 z-50 bg-transparent flex flex-col items-center justify-end pb-20 animate-in fade-in duration-1000 pointer-events-none">
+          <div className="flex flex-col items-center text-center pointer-events-auto">
+            <img src={`./faces/face_jump.png`} className="w-32 h-32 rounded-full border-4 border-white shadow-2xl mb-4 object-cover animate-bounce" alt="Win Face" />
+            <p className="text-3xl md:text-4xl text-white font-black mb-6 drop-shadow-[0_4px_4px_rgba(0,0,0,0.8)]">You collected {score/100} / 2 Gifts!</p>
+            <button onClick={restartGame} className="px-10 py-4 bg-cyan-500 hover:bg-cyan-400 text-white text-2xl font-black rounded-full shadow-[0_0_20px_rgba(6,182,212,1)] border-4 border-white transition hover:scale-110 active:scale-95">
               Play Again ⛷️
             </button>
           </div>
