@@ -12,12 +12,10 @@ export default function Message({ lang, onFinish }) {
     { text: t.msg_1, style: "text-3xl md:text-5xl mb-6 font-hand text-[#1a1240]" },
     { text: t.msg_2, style: "font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px] text-[#1a1240]" },
     { text: t.msg_3, style: "font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px] text-[#1a1240] mt-4" },
-    { text: t.msg_4, style: "font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px] text-[#1a1240] mt-4" },
-    { text: t.msg_5, style: "font-bold text-pink-600 block text-2xl md:text-4xl mt-4 font-hand leading-[30px] md:leading-[36px]" },
+    { text: t.msg_4, style: "font-bold text-pink-600 block text-2xl md:text-4xl mt-4 font-hand leading-[30px] md:leading-[36px]" },
+    { text: t.msg_5, style: "font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px] text-[#1a1240] mt-4" },
     { text: t.msg_6, style: "font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px] text-[#1a1240] mt-4" },
-    { text: t.msg_7, style: "font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px] text-[#1a1240] mt-4" },
-    { text: t.msg_8, style: "font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px] text-[#1a1240] mt-4" },
-    { text: t.msg_9, style: "pt-6 md:pt-8 pb-4 text-right font-bold text-gray-700 font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px]" },
+    { text: t.msg_7, style: "pt-6 md:pt-8 pb-4 text-right font-bold text-gray-700 font-hand text-xl md:text-3xl leading-[30px] md:leading-[36px]" },
   ];
 
   // Notify App.jsx when the letter completely finishes
@@ -48,9 +46,9 @@ export default function Message({ lang, onFinish }) {
     }
   }, [activeParaIndex, visibleChars, lang]);
 
-  // Rebalanced paragraphs: 5 on the left, 4 on the right
-  const leftParas = paragraphs.slice(0, 5);
-  const rightParas = paragraphs.slice(5);
+  // Rebalanced paragraphs: 4 on the left, 3 on the right
+  const leftParas = paragraphs.slice(0, 4);
+  const rightParas = paragraphs.slice(4);
 
   const renderGridPara = (p, pIndex) => {
     // If the paragraph has completely finished writing and flown to the page
@@ -80,14 +78,14 @@ export default function Message({ lang, onFinish }) {
       {/* 1. The Two-Column Notebook Layout */}
       <div className="w-full max-w-[95vw] md:max-w-6xl mx-auto md:px-12 h-full pt-4 md:pt-10 overflow-y-auto md:overflow-hidden pb-32 md:pb-0">
         <div className="flex flex-col md:flex-row w-full gap-0 md:gap-24 justify-center mobile-notebook">
-          {/* Left Page (indices 0 to 4) */}
+          {/* Left Page (indices 0 to 3) */}
           <div className="w-full md:w-1/2 flex flex-col pt-0 md:pt-8 md:pl-8">
             {leftParas.map((p, i) => renderGridPara(p, i))}
           </div>
           
-          {/* Right Page (indices 5 to 8) */}
+          {/* Right Page (indices 4 to 6) */}
           <div className="w-full md:w-1/2 flex flex-col pt-0 md:pt-8 md:pr-8">
-            {rightParas.map((p, i) => renderGridPara(p, i + 5))}
+            {rightParas.map((p, i) => renderGridPara(p, i + 4))}
           </div>
         </div>
       </div>
