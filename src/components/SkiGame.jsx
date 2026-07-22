@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo, forwardRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { Billboard, useTexture, Sky, Environment, Sparkles, Text } from '@react-three/drei';
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
+import { Billboard, useTexture, Sky, Sparkles, Text } from '@react-three/drei';
+// Post-processing and Environment removed for performance
 import * as THREE from 'three';
 
 // --- CONSTANTS ---
 const DESPAWN_Z = 15;
 const BOUNDARY = 10;
-const BASE_SPEED = 15;
+const BASE_SPEED = 28;
 const TRAIL_COUNT = 60;
 const FRIEND_COUNT = 12;
 
@@ -82,11 +82,11 @@ const ProceduralObstacle = forwardRef(({ scale = 1, type = 0 }, ref) => (
   <group ref={ref} scale={scale}>
     {type === 0 && ( // Tall Pine
       <>
-        <mesh position={[0, 2, 0]} castShadow receiveShadow>
+        <mesh position={[0, 2, 0]} castShadow>
           <coneGeometry args={[1, 4, 8]} />
           <meshStandardMaterial color="#2d5a27" roughness={0.9} />
         </mesh>
-        <mesh position={[0, 4, 0]} castShadow receiveShadow>
+        <mesh position={[0, 4, 0]} castShadow>
           <coneGeometry args={[0.8, 3, 8]} />
           <meshStandardMaterial color="#3a7033" roughness={0.9} />
         </mesh>
@@ -98,11 +98,11 @@ const ProceduralObstacle = forwardRef(({ scale = 1, type = 0 }, ref) => (
     )}
     {type === 1 && ( // Snowy Bush
       <>
-        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
+        <mesh position={[0, 1.5, 0]} castShadow>
           <coneGeometry args={[1.5, 3, 7]} />
           <meshStandardMaterial color="#228b22" roughness={1} />
         </mesh>
-        <mesh position={[0, 2.5, 0]} castShadow receiveShadow>
+        <mesh position={[0, 2.5, 0]} castShadow>
           <coneGeometry args={[1.2, 2, 7]} />
           <meshStandardMaterial color="#e0e8f0" roughness={0.5} />
         </mesh>
@@ -129,22 +129,22 @@ const ProceduralObstacle = forwardRef(({ scale = 1, type = 0 }, ref) => (
       </>
     )}
     {type === 3 && ( // Large Boulder
-      <mesh position={[0, 0.8, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.8, 0]} castShadow>
         <dodecahedronGeometry args={[1.2, 1]} />
         <meshStandardMaterial color="#7a8a99" roughness={0.8} />
       </mesh>
     )}
     {type === 4 && ( // Small Rocks
       <group position={[0, 0.3, 0]}>
-        <mesh position={[0.5, 0, 0.2]} castShadow receiveShadow>
+        <mesh position={[0.5, 0, 0.2]} castShadow>
           <dodecahedronGeometry args={[0.4, 0]} />
           <meshStandardMaterial color="#6a7a88" roughness={0.9} />
         </mesh>
-        <mesh position={[-0.4, 0, -0.3]} castShadow receiveShadow>
+        <mesh position={[-0.4, 0, -0.3]} castShadow>
           <dodecahedronGeometry args={[0.3, 0]} />
           <meshStandardMaterial color="#6a7a88" roughness={0.9} />
         </mesh>
-        <mesh position={[0, 0.2, 0]} castShadow receiveShadow>
+        <mesh position={[0, 0.2, 0]} castShadow>
           <dodecahedronGeometry args={[0.5, 0]} />
           <meshStandardMaterial color="#e0e8f0" roughness={0.9} />
         </mesh>
@@ -155,7 +155,7 @@ const ProceduralObstacle = forwardRef(({ scale = 1, type = 0 }, ref) => (
 
 const SkiRamp = forwardRef((props, ref) => (
   <group ref={ref} {...props}>
-    <mesh position={[0, 0.5, 0]} rotation={[Math.PI / 8, 0, 0]} castShadow receiveShadow>
+    <mesh position={[0, 0.5, 0]} rotation={[Math.PI / 8, 0, 0]} castShadow>
       <boxGeometry args={[3, 0.2, 4]} />
       <meshStandardMaterial color="#ffffff" roughness={0.8} />
     </mesh>
@@ -502,7 +502,13 @@ const GameManager = ({
     for (let i = 0; i < FRIEND_COUNT; i++) {
       if (friendRefs.current[i]) {
         const jumpY = Math.abs(Math.sin(time * 8 + (i * Math.PI/4))) * 1.5;
-        friendRefs.current[i].position.set((i - FRIEND_COUNT/2) * 2, jumpY, finishZ - 5 + (i % 2)*2);
+        if (finishZ > -100) {
+          friendRefs.current[i].position.set((i - FRIEND_COUNT/2) * 2, jumpY, finishZ - 5 + (i % 2)*2);
+        } else {
+          let localZ = ((worldDistance.current + i * 50) % 300) - 200;
+          let xPos = (i % 2 === 0 ? -11 : 11) + (i % 3); // Sides
+          friendRefs.current[i].position.set(xPos, jumpY, localZ);
+        }
       }
     }
 
@@ -729,7 +735,7 @@ export default function SkiGame() {
       )}
 
       {isGameWon && (
-        <div className="absolute inset-0 z-50 bg-black/10 flex flex-col items-center justify-center backdrop-blur-sm animate-in fade-in duration-1000">
+        <div className="absolute inset-0 z-50 bg-black/10 flex flex-col items-center justify-center animate-in fade-in duration-1000">
           <div className="bg-white/20 p-12 rounded-3xl border border-white/40 shadow-[0_0_100px_rgba(255,255,255,0.8)] flex flex-col items-center text-center backdrop-blur-lg mt-20">
             <h2 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400 mb-6 drop-shadow-[0_5px_5px_rgba(0,0,0,0.3)]">HAPPY BIRTHDAY!</h2>
             <img src={`./faces/face_jump.png`} className="w-48 h-48 rounded-full border-8 border-white shadow-2xl mb-8 object-cover animate-bounce" alt="Win Face" />
@@ -748,11 +754,10 @@ export default function SkiGame() {
 
       <Canvas shadows camera={{ position: [0, 4.5, 12], fov: 60 }}>
         <color attach="background" args={['#87CEEB']} />
-        <ambientLight intensity={0.2} />
-        <directionalLight castShadow position={[10, 30, 10]} intensity={1.2} shadow-mapSize={[2048, 2048]}>
+        <ambientLight intensity={0.4} />
+        <directionalLight castShadow position={[10, 30, 10]} intensity={1.5} shadow-mapSize={[512, 512]}>
           <orthographicCamera attach="shadow-camera" args={[-20, 20, 20, -20, 1, 100]} />
         </directionalLight>
-        <Environment preset="sunset" />
         <fog attach="fog" args={['#87CEEB', 20, 100]} />
         <React.Suspense fallback={null}>
           <GameManager 
@@ -760,10 +765,6 @@ export default function SkiGame() {
             isGameOverRef={isGameOverRef} setIsGameOver={setIsGameOver} isGameWonRef={isGameWonRef} setIsGameWon={setIsGameWon}
             addScore={() => setScore(s => s + 100)} setFaceState={setFaceState}
           />
-          <EffectComposer disableNormalPass>
-            <Bloom luminanceThreshold={0.95} luminanceSmoothing={0.1} intensity={0.6} />
-            <Vignette eskil={false} offset={0.1} darkness={1.1} />
-          </EffectComposer>
         </React.Suspense>
       </Canvas>
     </div>
