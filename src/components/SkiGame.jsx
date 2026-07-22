@@ -503,7 +503,9 @@ const GameManager = ({
       if (friendRefs.current[i]) {
         const jumpY = Math.abs(Math.sin(time * 8 + (i * Math.PI/4))) * 1.5;
         if (finishZ > -100) {
-          friendRefs.current[i].position.set((i - FRIEND_COUNT/2) * 2, jumpY, finishZ - 5 + (i % 2)*2);
+          const row = Math.floor(i / 6);
+          const col = i % 6;
+          friendRefs.current[i].position.set((col - 2.5) * 4, jumpY, finishZ - 6 - (row * 3));
         } else {
           let localZ = ((worldDistance.current + i * 50) % 300) - 200;
           let xPos = (i % 2 === 0 ? -11 : 11) + (i % 3); // Sides
