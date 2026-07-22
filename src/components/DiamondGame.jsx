@@ -246,6 +246,14 @@ export default function DiamondGame({ onBack, onFinishGame }) {
               Fill &starf;
             </button>
           )}
+
+          <button 
+            onClick={onFinishGame}
+            className="px-3 md:px-4 py-2 text-sm md:text-base bg-sky-500 hover:bg-sky-400 text-white font-bold rounded-lg transition shadow-[0_0_10px_rgba(14,165,233,0.5)] flex items-center gap-1 md:gap-2 ml-2"
+          >
+            <span className="hidden sm:inline">Play Ski Game</span>
+            <span>⛷️</span>
+          </button>
         </div>
       </div>
 
